@@ -742,6 +742,15 @@ function update(){
   const decidedCount=Object.keys(state).filter(k=>isDecided(k)).length;
   const enteredCount=Object.keys(state).filter(k=>state[k].entered).length;
 
+  if(enteredCount===0){
+    bn.className='banner mid';
+    bp.style.color='var(--muted)';bp.textContent='待機中';
+    bl.textContent='スコアを入力してください';
+    bs.textContent='';
+    updateStandings();
+    return;
+  }
+
   if(n===1){
     const s=scens[0];
     if(s.status==='突破'){
@@ -812,12 +821,12 @@ function timerAction(mid, action) {
   const t = timers[mid];
   const now = Date.now();
   if (action === 'pre') { t.phase='pre'; t.kickoffTime=null;t.halftimeTime=null;t.secondHalfTime=null;t.fulltimeTime=null;t.firstHalfElapsed=0; }
-  else if (action === 'firstHalf') { t.phase='firstHalf'; t.kickoffTime=now; }
+  else if (action === 'firstHalf') { t.phase='firstHalf'; t.kickoffTime=now; state[mid].entered=true; updateDisplay(mid); update(); }
   else if (action === 'halftime') { t.phase='halftime'; t.halftimeTime=now; t.firstHalfElapsed=now-t.kickoffTime; }
   else if (action === 'secondHalf') { t.phase='secondHalf'; t.secondHalfTime=now; }
   else if (action === 'fulltime') { t.phase='fulltime'; t.fulltimeTime=now; }
   updateMatchTimer(mid);
-  if (isAdmin) syncTimerToFirebase();
+  if (isAdmin) { syncTimerToFirebase(); syncToFirebase(); }
 }
 
 function updateMatchTimer(mid) {
