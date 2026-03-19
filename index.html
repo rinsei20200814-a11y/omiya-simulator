@@ -123,6 +123,21 @@ body{
 .badge-wc{background:#1a1040;color:var(--purple);border:1px solid #4c2a8a}
 .badge-out{background:var(--surface);color:var(--muted)}
 
+/* Scenario tabs & list */
+.scen-tabs{display:flex;border-bottom:1px solid var(--border)}
+.scen-tab{flex:1;padding:10px;background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.scen-tab.active{color:var(--text);border-bottom-color:var(--blue)}
+.scen-tab.tab-lose.active{color:var(--red);border-bottom-color:var(--red)}
+.scen-tab.tab-adv.active{color:var(--green);border-bottom-color:var(--green)}
+.scen-list{padding:10px 14px;max-height:300px;overflow-y:auto}
+.scen-item{padding:8px 10px;border-radius:8px;margin-bottom:6px;font-size:11.5px;line-height:1.6;border:1px solid var(--border)}
+.scen-item.lose{background:var(--red-bg);border-color:var(--red-bd)}
+.scen-item.adv{background:var(--green-bg);border-color:var(--green-bd)}
+.scen-match{color:var(--muted);font-size:10.5px}
+.scen-result{font-weight:700;margin-top:2px}
+.scen-result.lose{color:var(--red)}
+.scen-result.adv{color:var(--green)}
+
 /* Reset */
 .reset{display:block;width:calc(100% - 28px);margin:6px 14px 14px;padding:12px;
   background:var(--surface);border:1px solid var(--border);border-radius:12px;
@@ -280,6 +295,13 @@ body.view-mode .score-row{pointer-events:none}
   </div>
 </div>
 
+<div class="info-box" id="scenBox" style="display:none">
+  <div class="scen-tabs">
+    <button class="scen-tab active" id="tabLose" onclick="switchScenTab('lose')">敗退パターン</button>
+    <button class="scen-tab" id="tabAdv" onclick="switchScenTab('adv')">突破パターン</button>
+  </div>
+  <div class="scen-list" id="scenBody"></div>
+</div>
 <div class="sc-count" id="scCount"></div>
 
 <script>
@@ -792,7 +814,75 @@ function update(){
   }
 
   document.getElementById('scCount').textContent='';
+
+  // Scenario detail box
+  const scenBox=document.getElementById('scenBox');
+  if(n>1 && advP>0 && advP<1){
+    scenBox.style.display='';
+    window._scens=scens;
+    const tabLose=document.getElementById('tabLose');
+    const tabAdv=document.getElementById('tabAdv');
+    const loseCount=scens.filter(s=>s.status!=='突破').length;
+    const advCount=scens.filter(s=>s.status==='突破').length;
+    tabLose.textContent=`敗退パターン (${loseCount})`;
+    tabLose.className='scen-tab tab-lose'+(currentScenTab==='lose'?' active':'');
+    tabAdv.textContent=`突破パターン (${advCount})`;
+    tabAdv.className='scen-tab tab-adv'+(currentScenTab==='adv'?' active':'');
+    renderScenarios();
+  }else{
+    scenBox.style.display='none';
+  }
+
   updateStandings();
+}
+
+let currentScenTab='lose';
+
+function switchScenTab(tab){
+  currentScenTab=tab;
+  document.getElementById('tabLose').className='scen-tab tab-lose'+(tab==='lose'?' active':'');
+  document.getElementById('tabAdv').className='scen-tab tab-adv'+(tab==='adv'?' active':'');
+  renderScenarios();
+}
+
+const RESULT_LABELS={
+  '大宮90':'大宮 90分勝利','大宮PK':'大宮 PK勝ち',
+  'ちふれPK':'ちふれ PK勝ち','ちふれ90':'ちふれ 90分勝利',
+  '広島90':'広島 90分勝利','広島PK':'広島 PK勝ち',
+  'INAC_PK':'INAC PK勝ち','INAC90':'INAC 90分勝利',
+  '仙台90':'仙台 90分勝利','仙台PK':'仙台 PK勝ち',
+  '長野PK':'長野 PK勝ち','長野90':'長野 90分勝利',
+  '千葉90':'千葉 90分勝利','千葉PK':'千葉 PK勝ち',
+  'ベレーザPK':'ベレーザ PK勝ち','ベレーザ90':'ベレーザ 90分勝利'
+};
+
+function renderScenarios(){
+  const body=document.getElementById('scenBody');
+  if(!window._scens){body.innerHTML='';return;}
+  const filtered=window._scens.filter(s=>currentScenTab==='lose'?s.status!=='突破':s.status==='突破');
+  if(filtered.length===0){
+    body.innerHTML='<div style="text-align:center;color:var(--muted);padding:16px;font-size:12px">該当パターンなし</div>';
+    return;
+  }
+  // Only show undecided match results (decided ones are the same in all scenarios)
+  const decidedKeys={};
+  for(const mid of Object.keys(state)){
+    if(isDecided(mid)) decidedKeys[mid]=true;
+  }
+  const midToKey={a1:'a1',a2:'a2',b1:'b1',b2:'b2'};
+  body.innerHTML=filtered.map((s,i)=>{
+    const cls=s.status==='突破'?'adv':'lose';
+    const lines=[];
+    if(!decidedKeys.a1) lines.push(`ちふれ vs 大宮: ${RESULT_LABELS[s.a1]||s.a1}`);
+    if(!decidedKeys.a2) lines.push(`広島 vs INAC: ${RESULT_LABELS[s.a2]||s.a2}`);
+    if(!decidedKeys.b1) lines.push(`仙台 vs AC長野: ${RESULT_LABELS[s.b1]||s.b1}`);
+    if(!decidedKeys.b2) lines.push(`千葉 vs ベレーザ: ${RESULT_LABELS[s.b2]||s.b2}`);
+    const routeText=s.status==='突破'?`${s.route} (大宮${s.op}pt GD${s.omiyaGd>0?'+':''}${s.omiyaGd})`:`${s.route} (大宮${s.op}pt / B2位${s.b2pt}pt)`;
+    return `<div class="scen-item ${cls}">
+      <div class="scen-match">${lines.join(' / ')}</div>
+      <div class="scen-result ${cls}">${routeText}</div>
+    </div>`;
+  }).join('');
 }
 
 function resetAll(){
@@ -820,7 +910,11 @@ for (const k of Object.keys(MATCHES)) {
 function timerAction(mid, action) {
   const t = timers[mid];
   const now = Date.now();
-  if (action === 'pre') { t.phase='pre'; t.kickoffTime=null;t.halftimeTime=null;t.secondHalfTime=null;t.fulltimeTime=null;t.firstHalfElapsed=0; }
+  if (action === 'pre') {
+    t.phase='pre'; t.kickoffTime=null;t.halftimeTime=null;t.secondHalfTime=null;t.fulltimeTime=null;t.firstHalfElapsed=0;
+    const s=state[mid]; s.h1h=0;s.h1a=0;s.h2h=0;s.h2a=0;s.pk=null;s.entered=false;
+    updateDisplay(mid); update();
+  }
   else if (action === 'firstHalf') { t.phase='firstHalf'; t.kickoffTime=now; state[mid].entered=true; updateDisplay(mid); update(); }
   else if (action === 'halftime') { t.phase='halftime'; t.halftimeTime=now; t.firstHalfElapsed=now-t.kickoffTime; }
   else if (action === 'secondHalf') { t.phase='secondHalf'; t.secondHalfTime=now; }
