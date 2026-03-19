@@ -170,11 +170,28 @@ body{
 /* Match Timer */
 .mc-timer{display:flex;align-items:center;justify-content:space-between;
   padding:8px 10px;margin-bottom:10px;background:var(--surface);border-radius:10px;border:1px solid var(--border)}
-.mc-timer-display{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;min-width:70px}
+.mc-timer-left{display:flex;align-items:center;gap:6px}
+.mc-timer-display{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;min-width:50px}
 .mc-timer-display.pre{color:var(--muted);font-size:12px;font-weight:600}
 .mc-timer-display.live{color:var(--green)}
 .mc-timer-display.stopped{color:var(--gold)}
 .mc-timer-btns{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.edit-btn{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 4px;
+  -webkit-tap-highlight-color:transparent}
+.edit-btn:active{color:var(--text)}
+.mc-timer-edit{display:none;align-items:center;gap:4px;margin-top:6px;padding:6px 10px;
+  background:var(--card);border:1px solid var(--border);border-radius:8px}
+.mc-timer-edit.show{display:flex}
+.timer-input{width:50px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);font-size:14px;font-weight:700;text-align:center;
+  -moz-appearance:textfield}
+.timer-input::-webkit-outer-spin-button,.timer-input::-webkit-inner-spin-button{-webkit-appearance:none}
+.timer-half-sel{display:flex;gap:3px}
+.timer-half-btn{padding:4px 8px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface);color:var(--muted);font-size:10px;font-weight:600;cursor:pointer}
+.timer-half-btn.sel{border-color:var(--accent);color:var(--accent);background:rgba(243,152,0,.1)}
+.timer-set-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--green-bd);
+  background:var(--green-bg);color:var(--green);font-size:10px;font-weight:700;cursor:pointer}
 .timer-btn{
   padding:5px 10px;border-radius:8px;border:1px solid var(--border);
   background:var(--card);color:var(--text);font-size:10px;font-weight:600;
@@ -189,7 +206,7 @@ body{
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* View mode */
-body.view-mode .sbtn,body.view-mode .pk-btn,body.view-mode .reset,body.view-mode .mc-timer-btns{display:none!important}
+body.view-mode .sbtn,body.view-mode .pk-btn,body.view-mode .reset,body.view-mode .mc-timer-btns,body.view-mode .edit-btn,body.view-mode .mc-timer-edit{display:none!important}
 body.view-mode .score-row{pointer-events:none}
 
 /* Mode badge */
@@ -481,13 +498,24 @@ function buildMatchCard(mid){
   const cont=document.getElementById('mc_'+mid);
   cont.innerHTML=`
     <div class="mc-timer">
-      <div class="mc-timer-display pre" id="timer_${mid}">KO前</div>
+      <div class="mc-timer-left">
+        <div class="mc-timer-display pre" id="timer_${mid}">KO前</div>
+        <button class="edit-btn" onclick="toggleEdit('${mid}')" title="時間を修正">✎</button>
+      </div>
       <div class="mc-timer-btns">
         <button class="timer-btn" id="tbtn_${mid}_ko" onclick="timerAction('${mid}','firstHalf')">KO</button>
         <button class="timer-btn" id="tbtn_${mid}_ht" onclick="timerAction('${mid}','halftime')" disabled>HT</button>
         <button class="timer-btn" id="tbtn_${mid}_2h" onclick="timerAction('${mid}','secondHalf')" disabled>後半</button>
         <button class="timer-btn" id="tbtn_${mid}_ft" onclick="timerAction('${mid}','fulltime')" disabled>終了</button>
       </div>
+    </div>
+    <div class="mc-timer-edit" id="edit_${mid}">
+      <input type="number" class="timer-input" id="editMin_${mid}" min="1" max="120" placeholder="分">
+      <div class="timer-half-sel">
+        <button class="timer-half-btn sel" id="editH1_${mid}" onclick="selHalf('${mid}','1')">前半</button>
+        <button class="timer-half-btn" id="editH2_${mid}" onclick="selHalf('${mid}','2')">後半</button>
+      </div>
+      <button class="timer-set-btn" onclick="setManualTime('${mid}')">設定</button>
     </div>
     <div class="mc-header">
       <div class="mc-team home ${m.hc}">${logoImg(m.home)}${m.home}</div>
@@ -835,6 +863,50 @@ function updateMatchTimer(mid) {
   bht.className='timer-btn'+(p==='halftime'?' active':'');
   b2h.className='timer-btn'+(p==='secondHalf'?' active':'');
   bft.className='timer-btn'+(p==='fulltime'?' active':'');
+}
+
+// Manual time edit
+const editHalf = {}; // track selected half per match
+for(const k of Object.keys(MATCHES)) editHalf[k]='1';
+
+function toggleEdit(mid){
+  const el=document.getElementById('edit_'+mid);
+  el.classList.toggle('show');
+}
+
+function selHalf(mid,half){
+  editHalf[mid]=half;
+  document.getElementById('editH1_'+mid).className='timer-half-btn'+(half==='1'?' sel':'');
+  document.getElementById('editH2_'+mid).className='timer-half-btn'+(half==='2'?' sel':'');
+}
+
+function setManualTime(mid){
+  const input=document.getElementById('editMin_'+mid);
+  const min=parseInt(input.value);
+  if(isNaN(min)||min<1) return;
+  const t=timers[mid];
+  const now=Date.now();
+
+  if(editHalf[mid]==='1'){
+    // First half: set kickoffTime so elapsed = (min-1) minutes
+    t.phase='firstHalf';
+    t.kickoffTime=now-(min-1)*60000;
+    t.halftimeTime=null;t.secondHalfTime=null;t.fulltimeTime=null;
+  }else{
+    // Second half: set secondHalfTime so elapsed shows correct minute (46+)
+    const actualMin=Math.max(min,46);
+    t.phase='secondHalf';
+    t.secondHalfTime=now-(actualMin-46)*60000;
+    if(!t.kickoffTime) t.kickoffTime=now-45*60000; // fake first half if not set
+    if(!t.halftimeTime) t.halftimeTime=t.kickoffTime+45*60000;
+    t.firstHalfElapsed=45*60000;
+    t.fulltimeTime=null;
+  }
+
+  updateMatchTimer(mid);
+  document.getElementById('edit_'+mid).classList.remove('show');
+  input.value='';
+  if(isAdmin) syncTimerToFirebase();
 }
 
 // Update all timers every second
