@@ -167,30 +167,29 @@ body{
 .pk-btn.pk-chiba{border-color:#FDD000;background:rgba(253,208,0,.15);color:#B8960B}
 .pk-btn.pk-beleza{border-color:#00A651;background:rgba(0,166,81,.15);color:#00A651}
 
-/* Timer */
-.timer-wrap{margin:16px 14px 0;background:var(--card);border:1px solid var(--border);border-radius:14px;
-  padding:14px 16px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.2)}
-.timer-display{font-size:42px;font-weight:900;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
-.timer-display.pre{color:var(--muted)}
-.timer-display.live{color:var(--green);text-shadow:0 0 20px rgba(63,185,80,.3)}
-.timer-display.stopped{color:var(--gold)}
-.timer-phase{font-size:11px;color:var(--muted);margin-top:4px;font-weight:600;letter-spacing:.05em}
-.timer-btns{display:flex;gap:6px;margin-top:10px;justify-content:center;flex-wrap:wrap}
+/* Match Timer */
+.mc-timer{display:flex;align-items:center;justify-content:space-between;
+  padding:8px 10px;margin-bottom:10px;background:var(--surface);border-radius:10px;border:1px solid var(--border)}
+.mc-timer-display{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;min-width:70px}
+.mc-timer-display.pre{color:var(--muted);font-size:12px;font-weight:600}
+.mc-timer-display.live{color:var(--green)}
+.mc-timer-display.stopped{color:var(--gold)}
+.mc-timer-btns{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .timer-btn{
-  padding:8px 16px;border-radius:10px;border:1px solid var(--border);
-  background:var(--surface);color:var(--text);font-size:11px;font-weight:600;
+  padding:5px 10px;border-radius:8px;border:1px solid var(--border);
+  background:var(--card);color:var(--text);font-size:10px;font-weight:600;
   cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;
-  box-shadow:0 1px 4px rgba(0,0,0,.2);
+  white-space:nowrap;
 }
-.timer-btn:active{transform:scale(.95);box-shadow:none}
+.timer-btn:active{transform:scale(.95)}
 .timer-btn.active{border-color:var(--green);background:rgba(63,185,80,.15);color:var(--green)}
 .timer-btn:disabled{opacity:.3;pointer-events:none}
-.timer-pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);
-  margin-right:6px;vertical-align:middle;animation:pulse 1.5s ease-in-out infinite}
+.timer-pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);
+  margin-right:4px;vertical-align:middle;animation:pulse 1.5s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* View mode */
-body.view-mode .sbtn,body.view-mode .pk-btn,body.view-mode .reset,body.view-mode .timer-btns{display:none!important}
+body.view-mode .sbtn,body.view-mode .pk-btn,body.view-mode .reset,body.view-mode .mc-timer-btns{display:none!important}
 body.view-mode .score-row{pointer-events:none}
 
 /* Mode badge */
@@ -213,17 +212,6 @@ body.view-mode .score-row{pointer-events:none}
   <div class="hdr-main"><em>RB大宮</em> 突破シミュレーター</div>
   <div id="modeBadge"></div>
   <div class="sync-status" id="syncStatus"></div>
-</div>
-
-<div class="timer-wrap" id="timerWrap">
-  <div class="timer-display pre" id="timerDisplay">キックオフ前</div>
-  <div class="timer-phase" id="timerPhase"></div>
-  <div class="timer-btns" id="timerBtns">
-    <button class="timer-btn" id="btnKickoff" onclick="timerAction('firstHalf')">キックオフ</button>
-    <button class="timer-btn" id="btnHalftime" onclick="timerAction('halftime')" disabled>ハーフタイム</button>
-    <button class="timer-btn" id="btnSecondHalf" onclick="timerAction('secondHalf')" disabled>後半キックオフ</button>
-    <button class="timer-btn" id="btnFulltime" onclick="timerAction('fulltime')" disabled>試合終了</button>
-  </div>
 </div>
 
 <div class="banner mid" id="banner">
@@ -492,6 +480,15 @@ function buildMatchCard(mid){
   const s=state[mid];
   const cont=document.getElementById('mc_'+mid);
   cont.innerHTML=`
+    <div class="mc-timer">
+      <div class="mc-timer-display pre" id="timer_${mid}">KO前</div>
+      <div class="mc-timer-btns">
+        <button class="timer-btn" id="tbtn_${mid}_ko" onclick="timerAction('${mid}','firstHalf')">KO</button>
+        <button class="timer-btn" id="tbtn_${mid}_ht" onclick="timerAction('${mid}','halftime')" disabled>HT</button>
+        <button class="timer-btn" id="tbtn_${mid}_2h" onclick="timerAction('${mid}','secondHalf')" disabled>後半</button>
+        <button class="timer-btn" id="tbtn_${mid}_ft" onclick="timerAction('${mid}','fulltime')" disabled>終了</button>
+      </div>
+    </div>
     <div class="mc-header">
       <div class="mc-team home ${m.hc}">${logoImg(m.home)}${m.home}</div>
       <div class="mc-vs">vs</div>
@@ -773,103 +770,80 @@ function resetAll(){
   update();
   if(isAdmin){
     syncToFirebase();
-    timerState.phase='pre';timerState.kickoffTime=null;timerState.halftimeTime=null;
-    timerState.secondHalfTime=null;timerState.fulltimeTime=null;timerState.firstHalfElapsed=0;
-    updateTimerButtons();updateTimerDisplay();
+    for(const mid of Object.keys(MATCHES)){
+      timers[mid]={phase:'pre',kickoffTime:null,halftimeTime:null,secondHalfTime:null,fulltimeTime:null,firstHalfElapsed:0};
+      updateMatchTimer(mid);
+    }
     syncTimerToFirebase();
   }
 }
 
-// Timer
-const timerState = {
-  phase: 'pre', // pre, firstHalf, halftime, secondHalf, fulltime
-  kickoffTime: null,
-  halftimeTime: null,
-  secondHalfTime: null,
-  fulltimeTime: null,
-  firstHalfElapsed: 0 // ms elapsed in first half (saved at halftime)
-};
+// Per-match timers
+const timers = {};
+for (const k of Object.keys(MATCHES)) {
+  timers[k] = {phase:'pre',kickoffTime:null,halftimeTime:null,secondHalfTime:null,fulltimeTime:null,firstHalfElapsed:0};
+}
 
-function timerAction(action) {
+function timerAction(mid, action) {
+  const t = timers[mid];
   const now = Date.now();
-  if (action === 'firstHalf') {
-    timerState.phase = 'firstHalf';
-    timerState.kickoffTime = now;
-  } else if (action === 'halftime') {
-    timerState.phase = 'halftime';
-    timerState.halftimeTime = now;
-    timerState.firstHalfElapsed = now - timerState.kickoffTime;
-  } else if (action === 'secondHalf') {
-    timerState.phase = 'secondHalf';
-    timerState.secondHalfTime = now;
-  } else if (action === 'fulltime') {
-    timerState.phase = 'fulltime';
-    timerState.fulltimeTime = now;
-  }
-  updateTimerButtons();
-  updateTimerDisplay();
+  if (action === 'firstHalf') { t.phase='firstHalf'; t.kickoffTime=now; }
+  else if (action === 'halftime') { t.phase='halftime'; t.halftimeTime=now; t.firstHalfElapsed=now-t.kickoffTime; }
+  else if (action === 'secondHalf') { t.phase='secondHalf'; t.secondHalfTime=now; }
+  else if (action === 'fulltime') { t.phase='fulltime'; t.fulltimeTime=now; }
+  updateMatchTimer(mid);
   if (isAdmin) syncTimerToFirebase();
 }
 
-function updateTimerButtons() {
-  const p = timerState.phase;
-  document.getElementById('btnKickoff').disabled = (p !== 'pre');
-  document.getElementById('btnHalftime').disabled = (p !== 'firstHalf');
-  document.getElementById('btnSecondHalf').disabled = (p !== 'halftime');
-  document.getElementById('btnFulltime').disabled = (p !== 'secondHalf');
-  // Highlight active
-  document.getElementById('btnKickoff').className = 'timer-btn' + (p === 'firstHalf' ? ' active' : '');
-  document.getElementById('btnHalftime').className = 'timer-btn' + (p === 'halftime' ? ' active' : '');
-  document.getElementById('btnSecondHalf').className = 'timer-btn' + (p === 'secondHalf' ? ' active' : '');
-  document.getElementById('btnFulltime').className = 'timer-btn' + (p === 'fulltime' ? ' active' : '');
-}
-
-function updateTimerDisplay() {
-  const el = document.getElementById('timerDisplay');
-  const phaseEl = document.getElementById('timerPhase');
-  const p = timerState.phase;
+function updateMatchTimer(mid) {
+  const t = timers[mid];
+  const p = t.phase;
+  const el = document.getElementById('timer_'+mid);
   const now = Date.now();
+  if (!el) return;
 
+  // Display
   if (p === 'pre') {
-    el.textContent = 'キックオフ前';
-    el.className = 'timer-display pre';
-    phaseEl.textContent = '';
+    el.className='mc-timer-display pre'; el.textContent='KO前';
   } else if (p === 'firstHalf') {
-    const elapsed = now - timerState.kickoffTime;
-    const mins = Math.floor(elapsed / 60000);
-    if (mins < 45) {
-      el.innerHTML = '<span class="timer-pulse"></span>' + (mins + 1) + "'";
-    } else {
-      const at = mins - 45 + 1;
-      el.innerHTML = '<span class="timer-pulse"></span>45+' + at + "'";
-    }
-    el.className = 'timer-display live';
-    phaseEl.textContent = '前半';
+    const mins = Math.floor((now - t.kickoffTime) / 60000);
+    el.className='mc-timer-display live';
+    el.innerHTML = mins < 45
+      ? '<span class="timer-pulse"></span>' + (mins+1) + "'"
+      : '<span class="timer-pulse"></span>45+' + (mins-44) + "'";
   } else if (p === 'halftime') {
-    const totalMins = Math.floor(timerState.firstHalfElapsed / 60000);
-    el.textContent = '前半終了';
-    el.className = 'timer-display stopped';
-    phaseEl.textContent = totalMins >= 45 ? '45+' + (totalMins - 45 + 1) + "' で終了" : (totalMins + 1) + "' で終了";
+    el.className='mc-timer-display stopped'; el.textContent='HT';
   } else if (p === 'secondHalf') {
-    const elapsed = now - timerState.secondHalfTime;
-    const mins = Math.floor(elapsed / 60000) + 45;
-    if (mins < 90) {
-      el.innerHTML = '<span class="timer-pulse"></span>' + (mins + 1) + "'";
-    } else {
-      const at = mins - 90 + 1;
-      el.innerHTML = '<span class="timer-pulse"></span>90+' + at + "'";
-    }
-    el.className = 'timer-display live';
-    phaseEl.textContent = '後半';
+    const mins = Math.floor((now - t.secondHalfTime) / 60000) + 45;
+    el.className='mc-timer-display live';
+    el.innerHTML = mins < 90
+      ? '<span class="timer-pulse"></span>' + (mins+1) + "'"
+      : '<span class="timer-pulse"></span>90+' + (mins-89) + "'";
   } else if (p === 'fulltime') {
-    el.textContent = '試合終了';
-    el.className = 'timer-display stopped';
-    phaseEl.textContent = '';
+    el.className='mc-timer-display stopped'; el.textContent='終了';
   }
+
+  // Buttons
+  const bko=document.getElementById('tbtn_'+mid+'_ko');
+  const bht=document.getElementById('tbtn_'+mid+'_ht');
+  const b2h=document.getElementById('tbtn_'+mid+'_2h');
+  const bft=document.getElementById('tbtn_'+mid+'_ft');
+  if(!bko)return;
+  bko.disabled=(p!=='pre'); bht.disabled=(p!=='firstHalf');
+  b2h.disabled=(p!=='halftime'); bft.disabled=(p!=='secondHalf');
+  bko.className='timer-btn'+(p==='firstHalf'?' active':'');
+  bht.className='timer-btn'+(p==='halftime'?' active':'');
+  b2h.className='timer-btn'+(p==='secondHalf'?' active':'');
+  bft.className='timer-btn'+(p==='fulltime'?' active':'');
 }
 
-// Update timer every second
-setInterval(updateTimerDisplay, 1000);
+// Update all timers every second
+setInterval(()=>{
+  for(const mid of Object.keys(MATCHES)){
+    const p=timers[mid].phase;
+    if(p==='firstHalf'||p==='secondHalf') updateMatchTimer(mid);
+  }
+},1000);
 
 // Firebase
 const firebaseConfig={
@@ -926,19 +900,22 @@ stateRef.on('value',(snapshot)=>{
 
 // Timer Firebase sync
 function syncTimerToFirebase(){
-  timerRef.set(JSON.parse(JSON.stringify(timerState)));
+  timerRef.set(JSON.parse(JSON.stringify(timers)));
 }
 timerRef.on('value',(snapshot)=>{
   const data=snapshot.val();
   if(!data) return;
-  timerState.phase=data.phase||'pre';
-  timerState.kickoffTime=data.kickoffTime||null;
-  timerState.halftimeTime=data.halftimeTime||null;
-  timerState.secondHalfTime=data.secondHalfTime||null;
-  timerState.fulltimeTime=data.fulltimeTime||null;
-  timerState.firstHalfElapsed=data.firstHalfElapsed||0;
-  updateTimerButtons();
-  updateTimerDisplay();
+  for(const mid of Object.keys(MATCHES)){
+    if(data[mid]){
+      timers[mid].phase=data[mid].phase||'pre';
+      timers[mid].kickoffTime=data[mid].kickoffTime||null;
+      timers[mid].halftimeTime=data[mid].halftimeTime||null;
+      timers[mid].secondHalfTime=data[mid].secondHalfTime||null;
+      timers[mid].fulltimeTime=data[mid].fulltimeTime||null;
+      timers[mid].firstHalfElapsed=data[mid].firstHalfElapsed||0;
+      updateMatchTimer(mid);
+    }
+  }
 });
 
 // Connection status
@@ -964,8 +941,6 @@ if(!isAdmin){
 for(const mid of Object.keys(MATCHES)){
   buildMatchCard(mid);
 }
-updateTimerButtons();
-updateTimerDisplay();
 update();
 </script>
 </body>
