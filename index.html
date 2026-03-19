@@ -46,13 +46,16 @@ body{
 
 /* Match card */
 .mc{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;
-  box-shadow:0 2px 12px rgba(0,0,0,.15);transition:border-color .2s}
+  box-shadow:0 2px 12px rgba(0,0,0,.15);transition:border-color .2s;position:relative;overflow:hidden}
 .mc:hover{border-color:#3a4050}
+.mc-bg-logo{position:absolute;width:120px;height:120px;object-fit:contain;opacity:.06;pointer-events:none;top:50%;transform:translateY(-50%)}
+.mc-bg-logo.home-bg{left:-10px}
+.mc-bg-logo.away-bg{right:-10px}
 .mc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.mc-team{font-size:14px;font-weight:700;flex:1;display:flex;align-items:center;gap:7px}
+.mc-team{font-size:15px;font-weight:700;flex:1;display:flex;align-items:center;gap:10px}
 .mc-team.home{text-align:left}
 .mc-team.away{text-align:right;justify-content:flex-end}
-.team-logo{width:44px;height:44px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))}
+.team-logo{width:64px;height:64px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
 .mc-vs{font-size:11px;color:var(--muted);margin:0 8px}
 .mc-result{text-align:center;font-size:11px;color:var(--muted);margin-top:2px;min-height:16px}
 .mc-result .decided{font-weight:700;font-size:12px}
@@ -110,7 +113,7 @@ body{
 .stbl td{padding:6px 6px;border-bottom:1px solid var(--border);text-align:center}
 .stbl tr:last-child td{border-bottom:none}
 .stbl .team-name{font-weight:700}
-.stbl .team-logo{width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:5px}
+.stbl .team-logo{width:28px;height:28px;object-fit:contain;vertical-align:middle;margin-right:6px}
 .stbl .pts{font-weight:800;font-size:13px}
 .stbl tr.qualify{background:var(--green-bg)}
 .stbl tr.wc{background:#1a1040}
@@ -487,7 +490,10 @@ function buildMatchCard(mid){
   const m=MATCHES[mid];
   const s=state[mid];
   const cont=document.getElementById('mc_'+mid);
+  const homeLogo=LOGOS[m.home]?`<img class="mc-bg-logo home-bg" src="${LOGO_BASE}${LOGOS[m.home]}" alt="">`:'';
+  const awayLogo=LOGOS[m.away]?`<img class="mc-bg-logo away-bg" src="${LOGO_BASE}${LOGOS[m.away]}" alt="">`:'';
   cont.innerHTML=`
+    ${homeLogo}${awayLogo}
     <div class="mc-timer">
       <div class="mc-timer-left">
         <div class="mc-timer-display pre" id="timer_${mid}">KO前</div>
